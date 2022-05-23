@@ -1,0 +1,12 @@
+---
+- name: bootstrap jenkins worker node
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: true
+
+  tasks:
+    - name: install JSON parser application
+      yum:
+        name: jq
+        state: present

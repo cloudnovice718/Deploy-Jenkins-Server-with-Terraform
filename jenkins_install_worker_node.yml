@@ -1,0 +1,131 @@
+---
+- name: Jenkins setup on worker node
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  become: true
+
+  vars_files:
+    - jenkins_install_vars.yml
+
+  tasks:
+
+    - name: create an ssh key pair
+      openssh_keypair:
+        path: "{{ ssh_key_dir }}"
+        type: rsa
+        size: 2048
+        group: ec2-user
+        owner: ec2-user
+
+    - name: add key pair to authorized keys file
+      authorized_key:
+        user: ec2-user
+        state: present
+        key: "{{ lookup('file', '/home/ec2-user/.ssh/id_rsa.pub') }}"
+
+    - name: set new file permissions on authorized keys file
+      file:
+        path: "{{ ssh_auth_keys_file_path }}"
+        mode: "0600"
+
+    - name: copy ipv4 address of worker node to a template file
+      copy:
+        content: |
+          <?xml version="1.1" encoding="UTF-8"?>
+          <slave>
+            <name>{{ ansible_default_ipv4['address'] }}</name>
+            <description></description>
+            <remoteFS>/home/ec2-user</remoteFS>
+            <numExecutors>1</numExecutors>
+            <mode>EXCLUSIVE</mode>
+            <retentionStrategy class="hudson.slaves.RetentionStrategy$Always"/>
+            <launcher class="hudson.plugins.sshslaves.SSHLauncher" plugin="ssh-slaves@1.31.2">
+              <host>{{ ansible_default_ipv4['address'] }}</host>
+              <port>22</port>
+              <credentialsId>JenkinsCreds-{{ ansible_default_ipv4['address'] }}</credentialsId>
+              <launchTimeoutSeconds>60</launchTimeoutSeconds>
+              <maxNumRetries>10</maxNumRetries>
+              <retryWaitTime>15</retryWaitTime>
+              <sshHostKeyVerificationStrategy class="hudson.plugins.sshslaves.verifiers.NonVerifyingKeyVerificationStrategy"/>
+              <tcpNoDelay>true</tcpNoDelay>
+            </launcher>
+            <label>worker</label>
+            <nodeProperties/>
+          </slave>
+        dest: "{{ worker_node_j2_file }}"
+
+    - name: read contents of private ssh key
+      slurp:
+        src: "{{ ssh_key_dir }}"
+      register: ssh_priv_key
+
+    - name: copy contents of private key to template file
+      copy:
+        content: |
+          <com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey plugin="ssh-credentials@1.18.1">
+            <scope>GLOBAL</scope>
+            <id>JenkinsCreds-{{ ansible_default_ipv4['address'] }}</id>
+            <description>Credentials for Workers</description>
+            <username>ec2-user</username>
+            <privateKeySource class="com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey$DirectEntryPrivateKeySource">
+              <privateKey>
+                {{ ssh_priv_key['content'] | b64decode }}
+              </privateKey>
+            </privateKeySource>
+          </com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey>          
+        dest: "{{ ssh_priv_key_j2_file }}"  
+
+    - name: install packages
+      yum:
+        name: "{{ prereqs }}"
+        state: present
+
+    - name: deploy ip template file to an xml file
+      template:
+        src: "{{ worker_node_j2_file }}"
+        dest: "{{ worker_node_xml_file }}"
+        owner: ec2-user
+        mode: '0644'
+
+    - name: deploy private key template file to an xml file
+      template:
+        src: "{{ ssh_priv_key_j2_file }}"
+        dest: "{{ worker_node_creds_xml_file }}"
+        owner: ec2-user
+        mode: '0644'
+
+    - name: retrieve jenkins cli jar file
+      get_url:
+        url: "{{ jenkins_cli_jar_url }}"
+        dest: "{{ jenkins_cli_jar_file_dest }}"
+        force: yes
+        owner: ec2-user
+        group: ec2-user
+        mode: '0777'
+      register: jenkins_cli_jar_download
+      ignore_errors: true
+      until: jenkins_cli_jar_download.status_code|default(200) == 200
+      retries: 5
+      delay: 5
+
+    - name: create jenkins authentication file and set permissions
+      copy:
+        content: "admin:password"
+        dest: "{{ jenkins_auth_file_path }}"
+        owner: ec2-user
+        mode: '0600'        
+
+    - name: complete jenkins node configuration
+      block:
+        - name: set up jenkins credentials
+          shell: >-
+            cat jenkins_worker_node_creds.xml | java -jar jenkins-cli.jar -auth @jenkins_auth_file -s 
+            http://{{ jenkins_ip }}:8080 create-credentials-by-xml system::system::jenkins _
+        - name: register jenkins worker node
+          shell: >-
+            cat jenkins_worker_node.xml | java -jar jenkins-cli.jar -auth @jenkins_auth_file -s 
+            http://{{ jenkins_ip }}:8080 create-node
+      ignore_errors: true
+        
+

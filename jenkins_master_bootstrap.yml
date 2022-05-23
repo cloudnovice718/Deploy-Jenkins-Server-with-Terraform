@@ -1,0 +1,20 @@
+---
+- name: bootstrap jenkins master node
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: true
+  
+  tasks:
+    - name: install packages
+      yum:
+        name: 
+          - git
+          - httpd
+        state: present
+    - name: start and enable apache service
+      service:
+        name: httpd
+        state: started
+        enabled: true
+        

@@ -1,0 +1,72 @@
+---
+- name: Jenkins setup on master node
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: true
+
+  vars_files:
+    - jenkins_install_vars.yml
+
+  tasks:
+
+    - name: install prerequisite packages
+      yum:
+        name: "{{ prereqs }}"
+        state: present
+
+    - name: import jenkins files 
+      git:
+        repo: "{{ jenkins_repo }}"
+        dest: "{{ jenkins_repo_dest }}"
+
+    - name: download jenkins installation
+      get_url:
+        url: "{{ jenkins_install_url }}"
+        dest: "{{ jenkins_install_dest }}"
+
+    - name: import gpg key
+      rpm_key:
+        key: "{{ jenkins_gpg_key }}"
+        state: present
+
+    - name: install jenkins
+      yum:
+        name: jenkins
+        state: present
+
+    - name: stop jenkins service temporarily
+      service:
+        name: jenkins
+        state: stopped
+
+    - name: create jenkins user
+      user:
+        name: jenkins
+        shell: "{{ jenkins_user_default_shell }}"
+        state: present
+
+    - name: remove default jenkins directory
+      file:
+        path: "{{ jenkins_default_dir }}"
+        state: absent
+
+    - name: copy cloned jenkins folder to /var/lib
+      copy:
+        src: "{{ cloned_jenkins_folder_src }}"
+        dest: "{{ cloned_jenkins_folder_dest }}"
+
+    - name: change folder permissions to previously copied directory
+      file: 
+        path: "{{ jenkins_folder_path }}"
+        state: directory
+        recurse: true
+        owner: jenkins
+
+    - name: ensure jenkins service is started and enabled
+      service:
+        name: jenkins
+        state: started
+        enabled: true
+
+

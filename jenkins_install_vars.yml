@@ -1,0 +1,25 @@
+---
+prereqs:
+  - wget
+  - java-1.8.0-openjdk-devel
+  - git
+
+jenkins_repo: https://github.com/linuxacademy/content-terraform-jenkins.git
+jenkins_repo_dest: /tmp/jenkins
+jenkins_install_url: https://pkg.jenkins.io/redhat/jenkins.repo 
+jenkins_install_dest: /etc/yum.repos.d/jenkins.repo 
+jenkins_gpg_key: https://pkg.jenkins.io/redhat/jenkins.io.key
+jenkins_user_default_shell: /bin/bash
+jenkins_default_dir: /var/lib/jenkins
+cloned_jenkins_folder_src: /tmp/jenkins/jenkins
+cloned_jenkins_folder_dest: /var/lib
+jenkins_folder_path: /var/lib/jenkins
+ssh_key_dir: /home/ec2-user/.ssh/id_rsa
+ssh_auth_keys_file_path: /home/ec2-user/.ssh/authorized_keys 
+worker_node_j2_file: worker_node_ip.j2 
+ssh_priv_key_j2_file: /home/ec2-user/ssh_priv_key.j2
+worker_node_xml_file: /home/ec2-user/jenkins_worker_node.xml
+worker_node_creds_xml_file: /home/ec2-user/jenkins_worker_node_creds.xml
+jenkins_cli_jar_url: http://{{ jenkins_ip }}:8080/jnlpJars/jenkins-cli.jar
+jenkins_cli_jar_file_dest: /home/ec2-user/jenkins-cli.jar
+jenkins_auth_file_path: /home/ec2-user/jenkins_auth_file
