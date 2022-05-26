@@ -1,5 +1,5 @@
 # Deploying a Jenkins Server with Terraform
-Loosely based on this tutorial from ACloudGuru (https://learn.acloud.guru/course/8a6f598f-a41f-48ff-99a6-2c7a760b4119/dashboard). This project builds a Jenkins server using AWS and Terraform
+Inspired by a tutorial I came across from ACloudGuru (https://learn.acloud.guru/course/8a6f598f-a41f-48ff-99a6-2c7a760b4119/dashboard). This project builds a Jenkins server using AWS and Terraform. I rewrote a majority amount of the original code from scratch to improve efficency and resolve issues I discovered during testing.
 
 The infrastructure consists of:
 
